@@ -1,0 +1,51 @@
+adapter.o: adapter.cpp adapter.h util.h board.h colour.h square.h book.h \
+  engine.h io.h fen.h game.h move.h line.h main.h move_do.h move_legal.h \
+  list.h option.h parse.h san.h uci.h
+attack.o: attack.cpp board.h colour.h util.h square.h move.h attack.h \
+  piece.h
+board.o: board.cpp attack.h board.h colour.h util.h square.h fen.h hash.h \
+  list.h move.h move_do.h move_gen.h move_legal.h piece.h
+book.o: book.cpp board.h colour.h util.h square.h book.h move.h \
+  move_legal.h list.h san.h
+book_make.o: book_make.cpp board.h colour.h util.h square.h book_make.h \
+  move.h move_do.h move_legal.h list.h pgn.h san.h
+book_merge.o: book_merge.cpp book_merge.h util.h
+colour.o: colour.cpp colour.h util.h
+engine.o: engine.cpp engine.h io.h util.h option.h
+epd.o: epd.cpp board.h colour.h util.h square.h engine.h io.h epd.h fen.h \
+  line.h move.h move_legal.h list.h option.h parse.h san.h uci.h
+fen.o: fen.cpp board.h colour.h util.h square.h fen.h option.h piece.h
+game.o: game.cpp attack.h board.h colour.h util.h square.h fen.h game.h \
+  move.h list.h move_do.h move_legal.h piece.h
+hash.o: hash.cpp board.h colour.h util.h square.h hash.h piece.h random.h
+io.o: io.cpp io.h util.h
+line.o: line.cpp board.h colour.h util.h square.h line.h move.h move_do.h \
+  move_legal.h list.h san.h
+list.o: list.cpp board.h colour.h util.h square.h list.h move.h
+main.o: main.cpp adapter.h util.h attack.h board.h colour.h square.h \
+  book.h book_make.h book_merge.h engine.h io.h epd.h fen.h \
+  filter_games.h hash.h list.h move.h main.h move_gen.h option.h piece.h \
+  search.h uci.h line.h
+move.o: move.cpp attack.h board.h colour.h util.h square.h list.h move.h \
+  move_do.h move_gen.h move_legal.h option.h piece.h
+move_do.o: move_do.cpp board.h colour.h util.h square.h hash.h move.h \
+  move_do.h move_legal.h list.h piece.h random.h
+move_gen.o: move_gen.cpp attack.h board.h colour.h util.h square.h list.h \
+  move.h move_gen.h move_legal.h piece.h
+move_legal.o: move_legal.cpp attack.h board.h colour.h util.h square.h \
+  fen.h list.h move.h move_do.h move_gen.h move_legal.h piece.h
+option.o: option.cpp option.h util.h
+parse.o: parse.cpp parse.h util.h
+pgn.o: pgn.cpp pgn.h util.h
+piece.o: piece.cpp colour.h util.h piece.h
+posix.o: posix.cpp posix.h util.h
+random.o: random.cpp random.h util.h
+san.o: san.cpp attack.h board.h colour.h util.h square.h list.h move.h \
+  move_gen.h move_legal.h piece.h san.h
+search.o: search.cpp attack.h board.h colour.h util.h square.h engine.h \
+  io.h fen.h line.h move.h list.h move_do.h move_gen.h move_legal.h \
+  option.h parse.h san.h search.h uci.h
+square.o: square.cpp colour.h util.h square.h
+uci.o: uci.cpp board.h colour.h util.h square.h engine.h io.h move.h \
+  move_do.h move_legal.h list.h option.h parse.h line.h uci.h
+util.o: util.cpp main.h util.h posix.h
