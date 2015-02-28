@@ -1,4 +1,14 @@
 
+Usage
+-----
+
+```
+cd src
+make
+./polyglot filter-games -forbidden-pgn forbidden-games.pgn -input-pgn games-to-examine.pgn  > permitted-games.pgn
+```
+
+
 Legal details
 -------------
 
