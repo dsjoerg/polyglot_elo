@@ -30,7 +30,7 @@ struct entry_t {
    uint64 key;
    uint16 move;
    uint16 n;
-   uint16 sum;
+  uint16 terminal;
    uint16 colour;
 };
 
@@ -155,7 +155,6 @@ static void book_insert(const char file_name[]) {
    pgn_t pgn[1];
    board_t board[1];
    int ply;
-   int result;
    char string[256];
    int move;
    int pos;
@@ -174,14 +173,6 @@ static void book_insert(const char file_name[]) {
 
       board_start(board);
       ply = 0;
-      result = 0;
-
-      if (false) {
-      } else if (my_string_equal(pgn->result,"1-0")) {
-         result = +1;
-      } else if (my_string_equal(pgn->result,"0-1")) {
-         result = -1;
-      }
 
       while (pgn_next_move(pgn,string,256)) {
 
@@ -197,7 +188,6 @@ static void book_insert(const char file_name[]) {
             pos = find_entry(board,move,true);
 
             Book->entry[pos].n++;
-            Book->entry[pos].sum += result+1;
 
             if (Book->entry[pos].n >= COUNT_MAX) {
                halve_stats(board->key);
@@ -205,9 +195,10 @@ static void book_insert(const char file_name[]) {
 
             move_do(board,move);
             ply++;
-            result = -result;
          }
       }
+
+      Book->entry[pos].terminal = 1;
 
       game_nb++;
       if (game_nb % 10000 == 0) fprintf(stderr,"%d games ...\n",game_nb);
@@ -277,7 +268,7 @@ static int find_entry(const board_t * board, int move, bool create) {
    Book->entry[pos].key = key;
    Book->entry[pos].move = move;
    Book->entry[pos].n = 0;
-   Book->entry[pos].sum = 0;
+   Book->entry[pos].terminal = 0;
    Book->entry[pos].colour = board->turn;
 
    // insert into the hash table
@@ -308,7 +299,7 @@ static void resize() {
    size += Book->alloc * sizeof(entry_t);
    size += (Book->alloc*2) * sizeof(sint32);
 
-   if (size >= 1048576) printf("allocating %gMB ...\n",double(size)/1048576.0);
+   if (size >= 1048576) fprintf(stderr,"allocating %gMB ...\n",double(size)/1048576.0);
 
    // resize arrays
 
@@ -346,7 +337,6 @@ static void halve_stats(uint64 key) {
 
       if (Book->entry[pos].key == key) {
          Book->entry[pos].n = (Book->entry[pos].n + 1) / 2;
-         Book->entry[pos].sum = (Book->entry[pos].sum + 1) / 2;
       }
    }
 }
@@ -357,7 +347,6 @@ static void book_filter(const char file_name[]) {
    pgn_t pgn[1];
    board_t board[1];
    int ply;
-   int result;
    char string[256];
    int move;
    int pos;
@@ -385,7 +374,7 @@ static void book_filter(const char file_name[]) {
             move = move_from_san(string,board);
 
             if (move == MoveNone || !move_is_legal(move,board)) {
-               printf("book_filter(): illegal move \"%s\" at line %d, column %d\n",string,pgn->move_line,pgn->move_column);
+              fprintf(stderr,"book_filter(): illegal move \"%s\" at line %d, column %d\n",string,pgn->move_line,pgn->move_column);
                continue;
             }
             pos = find_entry(board,move,false);
@@ -396,9 +385,11 @@ static void book_filter(const char file_name[]) {
             ply++;
          }
       }
-      if (!still_in_book) {
-        num_OK++;
+      if (still_in_book && (Book->entry[pos].terminal == 1)) {
+        // this is a FORBIDDEN GAME
         printf("%s",(char *)(pgn->game_string));
+      } else {
+        num_OK++;
       }
       game_nb++;
       if (game_nb % 10000 == 0) fprintf(stderr,"%d games, %d OK ...\n",game_nb,num_OK);
