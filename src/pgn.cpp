@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "stdlib.h"
 #include "pgn.h"
 #include "util.h"
 
@@ -79,6 +80,9 @@ void pgn_open(pgn_t * pgn, const char file_name[]) {
 
    pgn->move_line = -1; // DEBUG
    pgn->move_column = -1; // DEBUG
+
+   pgn->white_elo = -1;
+   pgn->black_elo = -1;
 }
 
 // pgn_close()
@@ -103,6 +107,8 @@ bool pgn_next_game(pgn_t * pgn) {
 
    strcpy(pgn->result,"*");
    strcpy(pgn->fen,"");
+   pgn->white_elo = -1;
+   pgn->black_elo = -1;
    pgn->game_string_len = 0;
 
    // loop
@@ -139,6 +145,12 @@ bool pgn_next_game(pgn_t * pgn) {
          strcpy(pgn->result,value);
       } else if (my_string_equal(name,"FEN")) {
          strcpy(pgn->fen,value);
+      } else if (my_string_equal(name,"WhiteElo")) {
+        pgn->white_elo = atoi(value);
+      } else if (my_string_equal(name,"BlackElo")) {
+        pgn->black_elo = atoi(value);
+      } else if (my_string_equal(name,"Event")) {
+        strcpy(pgn->event,value);
       }
    }
 

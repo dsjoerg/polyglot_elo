@@ -3,7 +3,7 @@
 
 EXE = polyglot
 
-OBJS = adapter.o attack.o board.o book.o book_make.o book_merge.o colour.o \
+OBJS = adapter.o attack.o board.o book.o book_make.o book_merge.o colour.o elo_book.o \
        engine.o epd.o fen.o filter_games.o game.o hash.o io.o line.o list.o main.o move.o \
        move_do.o move_gen.o move_legal.o option.o parse.o pgn.o piece.o \
        posix.o random.o san.o search.o square.o uci.o util.o

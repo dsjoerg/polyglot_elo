@@ -37,6 +37,9 @@ struct pgn_t {
 
    char result[PGN_STRING_SIZE];
    char fen[PGN_STRING_SIZE];
+   char event[PGN_STRING_SIZE];
+  int white_elo;
+  int black_elo;
 
    int move_line;
    int move_column;

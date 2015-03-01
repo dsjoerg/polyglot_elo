@@ -15,6 +15,7 @@
 #include "book.h"
 #include "book_make.h"
 #include "book_merge.h"
+#include "elo_book.h"
 #include "engine.h"
 #include "epd.h"
 #include "fen.h"
@@ -93,6 +94,11 @@ int main(int argc, char * argv[]) {
 
    if (argc >= 2 && my_string_equal(argv[1],"filter-games")) {
       filter_games(argc,argv);
+      return EXIT_SUCCESS;
+   }
+
+   if (argc >= 2 && my_string_equal(argv[1],"elo-book")) {
+      elo_book(argc,argv);
       return EXIT_SUCCESS;
    }
 

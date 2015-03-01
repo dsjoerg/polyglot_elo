@@ -408,7 +408,7 @@ static void resize() {
    size += Book->alloc * sizeof(entry_t);
    size += (Book->alloc*2) * sizeof(sint32);
 
-   if (size >= 1048576) printf("allocating %gMB ...\n",double(size)/1048576.0);
+   if (size >= 1048576) fprintf(stderr,"allocating %gMB ...\n",double(size)/1048576.0);
 
    // resize arrays
 

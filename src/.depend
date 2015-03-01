@@ -11,10 +11,14 @@ book_make.o: book_make.cpp board.h colour.h util.h square.h book_make.h \
   move.h move_do.h move_legal.h list.h pgn.h san.h
 book_merge.o: book_merge.cpp book_merge.h util.h
 colour.o: colour.cpp colour.h util.h
+elo_book.o: elo_book.cpp board.h colour.h util.h square.h elo_book.h \
+  move.h move_do.h move_legal.h list.h pgn.h san.h
 engine.o: engine.cpp engine.h io.h util.h option.h
 epd.o: epd.cpp board.h colour.h util.h square.h engine.h io.h epd.h fen.h \
   line.h move.h move_legal.h list.h option.h parse.h san.h uci.h
 fen.o: fen.cpp board.h colour.h util.h square.h fen.h option.h piece.h
+filter_games.o: filter_games.cpp board.h colour.h util.h square.h \
+  filter_games.h move.h move_do.h move_legal.h list.h pgn.h san.h
 game.o: game.cpp attack.h board.h colour.h util.h square.h fen.h game.h \
   move.h list.h move_do.h move_legal.h piece.h
 hash.o: hash.cpp board.h colour.h util.h square.h hash.h piece.h random.h
@@ -23,7 +27,7 @@ line.o: line.cpp board.h colour.h util.h square.h line.h move.h move_do.h \
   move_legal.h list.h san.h
 list.o: list.cpp board.h colour.h util.h square.h list.h move.h
 main.o: main.cpp adapter.h util.h attack.h board.h colour.h square.h \
-  book.h book_make.h book_merge.h engine.h io.h epd.h fen.h \
+  book.h book_make.h book_merge.h elo_book.h engine.h io.h epd.h fen.h \
   filter_games.h hash.h list.h move.h main.h move_gen.h option.h piece.h \
   search.h uci.h line.h
 move.o: move.cpp attack.h board.h colour.h util.h square.h list.h move.h \

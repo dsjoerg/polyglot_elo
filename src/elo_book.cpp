@@ -56,6 +56,7 @@ static book_t Book[1];
 
 static void   book_clear    ();
 static void   book_insert   (const char file_name[]);
+static void   eloize_games  (const char file_name[]);
 
 static int    find_entry    (const board_t * board, int move, bool create);
 static void   resize        ();
@@ -122,8 +123,8 @@ void elo_book(int argc, char * argv[]) {
    fputs("learning train games ...\n", stderr);
    book_insert(train_pgn_file);
 
-   //   fputs("filtering games ...\n", stderr);
-   //   book_filter(input_pgn_file);
+   fputs("eloizing games ...\n", stderr);
+   eloize_games(input_pgn_file);
 
    fputs("all done!\n", stderr);
 }
@@ -351,6 +352,64 @@ static void halve_stats(uint64 key) {
          Book->entry[pos].elo_sumsq = (Book->entry[pos].elo_sumsq + 1) / 2;
       }
    }
+}
+
+static void eloize_games(const char file_name[]) {
+   int game_nb;
+   pgn_t pgn[1];
+   board_t board[1];
+   int ply;
+   char string[256];
+   int move;
+   int pos;
+   int final_elo;
+   int final_ply;
+   int final_num_games;
+
+   ASSERT(file_name!=NULL);
+
+   // init
+
+   game_nb = 0;
+
+   // scan loop
+
+   pgn_open(pgn,file_name);
+
+   while (pgn_next_game(pgn)) {
+      board_start(board);
+      ply = 0;
+      final_elo = -1;
+      final_ply = -1;
+      final_num_games = -1;
+
+      while (pgn_next_move(pgn,string,256)) {
+         if (ply < MaxPly) {
+            move = move_from_san(string,board);
+
+            if (move == MoveNone || !move_is_legal(move,board)) {
+              fprintf(stderr,"book_filter(): illegal move \"%s\" at line %d, column %d\n",string,pgn->move_line,pgn->move_column);
+               continue;
+            }
+            pos = find_entry(board,move,false);
+            if (pos > -1 && (Book->entry[pos].n > 10)) {
+              int avg_elo = Book->entry[pos].elo_sum / Book->entry[pos].n;
+              int stdev_elo = sqrt((Book->entry[pos].elo_sumsq / Book->entry[pos].n) - (avg_elo * avg_elo));
+              final_ply = ply;
+              final_elo = avg_elo;
+              final_num_games = Book->entry[pos].n;
+              //              printf("ply %3i. %5i games, ELO %i += %i.\n", ply, Book->entry[pos].n, avg_elo, stdev_elo);
+            }
+            move_do(board,move);
+            ply++;
+         }
+      }
+      game_nb++;
+      if (game_nb % 10000 == 0) fprintf(stderr,"%d games ...\n",game_nb);
+      printf("%s,%i,%i,%i\n", pgn->event, final_elo, final_ply, final_num_games);
+   }
+   pgn_close(pgn);
+   fprintf(stderr, "ALL DONE.  %d games ...\n",game_nb);
 }
 
 
