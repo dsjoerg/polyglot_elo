@@ -23,7 +23,7 @@ LDFLAGS   = -lm
 
 # C++
 
-CXXFLAGS += -fno-exceptions -fno-rtti
+CXXFLAGS += -fno-exceptions -fno-rtti -g
 
 # optimisation
 
@@ -32,7 +32,7 @@ CXXFLAGS += -fomit-frame-pointer
 
 # strip
 
-LDFLAGS  += -s
+LDFLAGS  += -g
 
 # dependencies
 

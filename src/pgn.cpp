@@ -94,6 +94,16 @@ void pgn_close(pgn_t * pgn) {
    fclose(pgn->file);
 }
 
+void skip_to_next_game(pgn_t * pgn) {
+  // read tokens and ignore them until we hit our first [
+   while (true) {
+      pgn_token_read(pgn);
+      if (pgn->token_type == '[') break;
+   }
+   pgn_token_unread(pgn);
+}
+
+
 // pgn_next_game()
 
 bool pgn_next_game(pgn_t * pgn) {
@@ -123,7 +133,9 @@ bool pgn_next_game(pgn_t * pgn) {
 
       pgn_token_read(pgn);
       if (pgn->token_type != TOKEN_SYMBOL) {
-         my_fatal("pgn_next_game(): malformed tag at line %d, column %d\n",pgn->token_line,pgn->token_column);
+        //         my_fatal("pgn_next_game(): malformed tag at line %d, column %d\n",pgn->token_line,pgn->token_column);
+        fprintf(stderr, "pgn_next_game(): malformed tag at line %d, column %d.  Giving up on this file\n",pgn->token_line,pgn->token_column);
+        return false;
       }
       strcpy(name,pgn->token_string);
 
@@ -135,7 +147,11 @@ bool pgn_next_game(pgn_t * pgn) {
 
       pgn_token_read(pgn);
       if (pgn->token_type != ']') {
-         my_fatal("pgn_next_game(): malformed tag at line %d, column %d\n",pgn->token_line,pgn->token_column);
+        fprintf(stderr, "pgn_next_game(): malformed tag at line %d, column %d.  Did not find ] when expected. Skipping to it...\n",pgn->token_line,pgn->token_column);
+        while (pgn->token_type != ']') {
+          pgn_token_read(pgn);
+        }
+        //         my_fatal("pgn_next_game(): malformed tag at line %d, column %d\n",pgn->token_line,pgn->token_column);
       }
 
       // special tag?
@@ -224,7 +240,10 @@ bool pgn_next_move(pgn_t * pgn, char string[], int size) {
          // move must be a symbol
 
          if (pgn->token_type != TOKEN_SYMBOL) {
-            my_fatal("pgn_next_move(): malformed move at line %d, column %d\n",pgn->token_line,pgn->token_column);
+           fprintf(stderr, "pgn_next_move(): malformed move at line %d, column %d\n",pgn->token_line,pgn->token_column);
+           //            my_fatal("pgn_next_move(): malformed move at line %d, column %d\n",pgn->token_line,pgn->token_column);
+           skip_to_next_game(pgn);
+           return false;
          }
 
          // store move for later use
@@ -284,7 +303,10 @@ static void pgn_token_read(pgn_t * pgn) {
    // read a new token
 
    pgn_read_token(pgn);
-   if (pgn->token_type == TOKEN_ERROR) my_fatal("pgn_token_read(): lexical error at line %d, column %d\n",pgn->char_line,pgn->char_column);
+   if (pgn->token_type == TOKEN_ERROR) {
+     fprintf(stderr, "WARNING: pgn_token_read(): lexical error at line %d, column %d\n",pgn->char_line,pgn->char_column);
+     //     my_fatal("pgn_token_read(): lexical error at line %d, column %d\n",pgn->char_line,pgn->char_column);
+   }
 
    if (DispToken) printf("< L%d C%d \"%s\" (%03X)\n",pgn->token_line,pgn->token_column,pgn->token_string,pgn->token_type);
 }
@@ -444,25 +466,27 @@ static void pgn_read_token(pgn_t * pgn) {
 
          if (pgn->char_hack == '"') break;
 
-         if (pgn->char_hack == '\\') {
+         if (pgn->char_hack == ']') break;
 
-            pgn_char_read(pgn);
+         // if (pgn->char_hack == '\\') {
 
-            if (pgn->char_hack == CHAR_EOF) {
-               my_fatal("pgn_read_token(): EOF in string at line %d, column %d\n",pgn->char_line,pgn->char_column);
-            }
+         //    pgn_char_read(pgn);
 
-            if (pgn->char_hack != '"' && pgn->char_hack != '\\') {
+         //    if (pgn->char_hack == CHAR_EOF) {
+         //       my_fatal("pgn_read_token(): EOF in string at line %d, column %d\n",pgn->char_line,pgn->char_column);
+         //    }
 
-               // bad escape, ignore
+         //    if (pgn->char_hack != '"' && pgn->char_hack != '\\') {
 
-               if (pgn->token_length >= PGN_STRING_SIZE-1) {
-                  my_fatal("pgn_read_token(): string too long at line %d, column %d\n",pgn->char_line,pgn->char_column);
-               }
+         //       // bad escape, ignore
 
-               pgn->token_string[pgn->token_length++] = '\\';
-            }
-         }
+         //       if (pgn->token_length >= PGN_STRING_SIZE-1) {
+         //          my_fatal("pgn_read_token(): string too long at line %d, column %d\n",pgn->char_line,pgn->char_column);
+         //       }
+
+         //       pgn->token_string[pgn->token_length++] = '\\';
+         //    }
+         // }
 
          if (pgn->token_length >= PGN_STRING_SIZE-1) {
             my_fatal("pgn_read_token(): string too long at line %d, column %d\n",pgn->char_line,pgn->char_column);
@@ -511,6 +535,13 @@ static void pgn_read_token(pgn_t * pgn) {
    }
 }
 
+bool is_bomchar(unsigned char c) {
+  if (c == 239 || c == 187 || c == 191) {
+    return true;
+  }
+  return false;
+}
+
 // pgn_skip_blanks()
 
 static void pgn_skip_blanks(pgn_t * pgn) {
@@ -526,6 +557,10 @@ static void pgn_skip_blanks(pgn_t * pgn) {
       } else if (isspace(pgn->char_hack)) {
 
          // skip white space
+
+      } else if (is_bomchar(pgn->char_hack)) {
+
+         // skip BOM chars
 
       } else if (pgn->char_hack == ';') {
 

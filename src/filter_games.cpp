@@ -8,6 +8,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <unistd.h>
 
 #include "board.h"
 #include "filter_games.h"
@@ -71,15 +74,13 @@ static void   halve_stats   (uint64 key);
 void filter_games(int argc, char * argv[]) {
 
    int i;
-   const char * forbidden_pgn_file;
-   const char * input_pgn_file;
-   const char * bin_file;
+   const char * forbidden_pgn_files[100];
+   int num_forbidden_files = 0;
+   const char * input_pgn_files[100];
+   int num_input_files = 0;
 
-   forbidden_pgn_file = NULL;
-   input_pgn_file = NULL;
-
-   bin_file = NULL;
-   my_string_set(&bin_file,"book.bin");
+   struct stat buf;
+   struct dirent *dp;
 
    MaxPly = 1024;
 
@@ -96,21 +97,14 @@ void filter_games(int argc, char * argv[]) {
          i++;
          if (argv[i] == NULL) my_fatal("filter_games(): missing argument\n");
 
-         my_string_set(&forbidden_pgn_file,argv[i]);
+         my_string_set(&forbidden_pgn_files[num_forbidden_files++],argv[i]);
 
       } else if (my_string_equal(argv[i],"-input-pgn")) {
 
          i++;
          if (argv[i] == NULL) my_fatal("filter_games(): missing argument\n");
 
-         my_string_set(&input_pgn_file,argv[i]);
-
-      } else if (my_string_equal(argv[i],"-bin")) {
-
-         i++;
-         if (argv[i] == NULL) my_fatal("filter_games(): missing argument\n");
-
-         my_string_set(&bin_file,argv[i]);
+         my_string_set(&input_pgn_files[num_input_files++],argv[i]);
 
       } else {
 
@@ -120,11 +114,36 @@ void filter_games(int argc, char * argv[]) {
 
    book_clear();
 
-   fputs("learning forbidden games ...\n", stderr);
-   book_insert(forbidden_pgn_file);
+   fprintf(stderr, "hi!\n");
 
-   fputs("filtering games ...\n", stderr);
-   book_filter(input_pgn_file);
+   for (i=0; i<num_forbidden_files; i++) {
+     fprintf(stderr, "learning forbidden games from %s ...\n", forbidden_pgn_files[i]);
+     book_insert(forbidden_pgn_files[i]);
+   }
+
+   for (i=0; i<num_input_files; i++) {
+     stat(input_pgn_files[i], &buf);
+     if (buf.st_mode & S_IFDIR) {
+       fprintf(stderr, "%s is a directory!\n", input_pgn_files[i]);
+       chdir(input_pgn_files[i]);
+       DIR *dirp = opendir(input_pgn_files[i]);
+       while ((dp = readdir(dirp)) != NULL) {
+         stat(dp->d_name, &buf);
+         if (buf.st_mode & S_IFDIR) {
+           fprintf(stderr, "dir contains %s, which is a directory\n", dp->d_name);
+         } else {
+           fprintf(stderr, "dir contains %s\n", dp->d_name);
+           fprintf(stderr, "filtering games from %s ...\n", dp->d_name);
+           book_filter(dp->d_name);
+         }
+       }
+       (void)closedir(dirp);
+     } else {
+       fprintf(stderr, "filtering games from %s ...\n", input_pgn_files[i]);
+       book_filter(input_pgn_files[i]);
+     }
+
+   }
 
    fputs("all done!\n", stderr);
 }

@@ -8,6 +8,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <unistd.h>
 
 #include "board.h"
 #include "elo_book.h"
@@ -73,13 +76,16 @@ static void   halve_stats   (uint64 key);
 void elo_book(int argc, char * argv[]) {
 
    int i;
-   const char * train_pgn_file;
+   const char * train_pgn_file[100];
+   int num_train_files = 0;
    const char * input_pgn_file;
    const char * bin_file;
    bool exact_match = false;
 
-   train_pgn_file = NULL;
    input_pgn_file = NULL;
+
+   struct stat buf;
+   struct dirent *dp;
 
    bin_file = NULL;
    my_string_set(&bin_file,"book.bin");
@@ -99,7 +105,7 @@ void elo_book(int argc, char * argv[]) {
          i++;
          if (argv[i] == NULL) my_fatal("elo_book(): missing argument\n");
 
-         my_string_set(&train_pgn_file,argv[i]);
+         my_string_set(&train_pgn_file[num_train_files++],argv[i]);
 
       } else if (my_string_equal(argv[i],"-input-pgn")) {
 
@@ -112,6 +118,14 @@ void elo_book(int argc, char * argv[]) {
 
          i++;
          exact_match = true;
+
+      } else if (my_string_equal(argv[i],"-max-ply")) {
+
+         i++;
+         if (argv[i] == NULL) my_fatal("book_make(): missing argument\n");
+
+         MaxPly = atoi(argv[i]);
+         ASSERT(MaxPly>=0);
 
       } else if (my_string_equal(argv[i],"-bin")) {
 
@@ -128,8 +142,30 @@ void elo_book(int argc, char * argv[]) {
 
    book_clear();
 
-   fputs("learning train games ...\n", stderr);
-   book_insert(train_pgn_file, exact_match);
+   for (i=0; i<num_train_files; i++) {
+     stat(train_pgn_file[i], &buf);
+     if (buf.st_mode & S_IFDIR) {
+       fprintf(stderr, "%s is a directory!\n", train_pgn_file[i]);
+       chdir(train_pgn_file[i]);
+       DIR *dirp = opendir(train_pgn_file[i]);
+       while ((dp = readdir(dirp)) != NULL) {
+         stat(dp->d_name, &buf);
+         if (buf.st_mode & S_IFDIR) {
+           fprintf(stderr, "dir contains %s, which is a directory\n", dp->d_name);
+         } else {
+           fprintf(stderr, "dir contains %s\n", dp->d_name);
+           fprintf(stderr, "learning train games from %s ...\n", dp->d_name);
+           book_insert(dp->d_name, exact_match);
+         }
+       }
+       (void)closedir(dirp);
+     } else {
+       fprintf(stderr, "learning train games from %s ...\n", train_pgn_file[i]);
+       book_insert(train_pgn_file[i], exact_match);
+     }
+
+   }
+
 
    fputs("eloizing games ...\n", stderr);
    eloize_games(input_pgn_file, exact_match);

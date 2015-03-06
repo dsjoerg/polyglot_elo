@@ -112,6 +112,10 @@ void * my_realloc(void * address, int size) {
    ASSERT(address!=NULL);
    ASSERT(size>0);
 
+   if (size > 1000000) {
+     fprintf(stderr, "my_realloc(%i)\n", size);
+   }
+
    address = realloc(address,size);
    if (address == NULL) my_fatal("my_realloc(): realloc(): %s\n",strerror(errno));
 
