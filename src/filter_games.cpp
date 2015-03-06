@@ -389,7 +389,7 @@ static void book_filter(const char file_name[]) {
         // this is a FORBIDDEN GAME
       } else {
         num_OK++;
-        printf("%s",(char *)(pgn->game_string));
+        printf("%s\n",(char *)(pgn->game_string));
       }
       game_nb++;
       if (game_nb % 10000 == 0) fprintf(stderr,"%d games, %d OK ...\n",game_nb,num_OK);
