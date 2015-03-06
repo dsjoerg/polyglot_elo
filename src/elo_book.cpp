@@ -414,6 +414,8 @@ static void eloize_games(const char file_name[], bool exact_match) {
    int final_stdev_elo;
    int final_ply;
    int final_num_games;
+   int elo_min;
+   int elo_max;
    bool still_in_book;
 
    ASSERT(file_name!=NULL);
@@ -432,6 +434,8 @@ static void eloize_games(const char file_name[], bool exact_match) {
       final_elo = -1;
       final_ply = -1;
       final_num_games = -1;
+      elo_min = 3000;
+      elo_max = 0;
 
       still_in_book = true;
       while (pgn_next_move(pgn,string,256)) {
@@ -453,6 +457,8 @@ static void eloize_games(const char file_name[], bool exact_match) {
               final_elo = avg_elo;
               final_stdev_elo = stdev_elo;
               final_num_games = Book->entry[pos].n;
+              elo_min = avg_elo < elo_min ? avg_elo : elo_min;
+              elo_max = avg_elo > elo_max ? avg_elo : elo_max;
               //              printf("ply %3i. %5i games, ELO %i += %i.\n", ply, Book->entry[pos].n, avg_elo, stdev_elo);
             }
             move_do(board,move);
@@ -466,7 +472,7 @@ static void eloize_games(const char file_name[], bool exact_match) {
           printf("%s,%i\n", pgn->event, Book->entry[pos].gamenum);
         }
       } else {
-        printf("%s,%i,%i,%i,%i\n", pgn->event, final_elo, final_ply, final_num_games, final_stdev_elo);
+        printf("%s,%i,%i,%i,%i,%i,%i\n", pgn->event, final_elo, final_ply, final_num_games, final_stdev_elo, elo_min, elo_max);
       }
    }
    pgn_close(pgn);
