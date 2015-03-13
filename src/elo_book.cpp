@@ -21,6 +21,9 @@
 #include "san.h"
 #include "util.h"
 
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+
 // constants
 
 static const int COUNT_MAX = 16384;
@@ -29,6 +32,15 @@ static const int NIL = -1;
 
 // types
 
+struct elopath_stats {
+  int elo;
+  int stdev_elo;
+  int ply;
+  int num_games;
+  int elo_min;   // the smallest ELO of the games that exactly matched
+  int elo_max;   // the largest ELO of the games that exactly matched
+};
+
 struct entry_t {
    uint64 key;
    uint16 move;
@@ -36,6 +48,8 @@ struct entry_t {
   uint16 terminal;
   uint16 gamenum;
   uint32 elo_sum;
+  uint32 elo_min;
+  uint32 elo_max;
   uint64 elo_sumsq;
 };
 
@@ -76,19 +90,25 @@ static void   halve_stats   (uint64 key);
 void elo_book(int argc, char * argv[]) {
 
    int i;
-   const char * train_pgn_file[100];
+   const char * train_pgn_files[100];
    int num_train_files = 0;
-   const char * input_pgn_file;
+   const char * input_pgn_files[100];
+   int num_input_files = 0;
    const char * bin_file;
    bool exact_match = false;
-
-   input_pgn_file = NULL;
 
    struct stat buf;
    struct dirent *dp;
 
    bin_file = NULL;
    my_string_set(&bin_file,"book.bin");
+
+   // zero out these pointers because otherwise my_string_set() will
+   // attempt to free() them
+   for (i=0; i<100; i++) {
+     train_pgn_files[i] = NULL;
+     input_pgn_files[i] = NULL;
+   }
 
    MaxPly = 1024;
 
@@ -105,14 +125,14 @@ void elo_book(int argc, char * argv[]) {
          i++;
          if (argv[i] == NULL) my_fatal("elo_book(): missing argument\n");
 
-         my_string_set(&train_pgn_file[num_train_files++],argv[i]);
+         my_string_set(&train_pgn_files[num_train_files++],argv[i]);
 
       } else if (my_string_equal(argv[i],"-input-pgn")) {
 
          i++;
          if (argv[i] == NULL) my_fatal("elo_book(): missing argument\n");
 
-         my_string_set(&input_pgn_file,argv[i]);
+         my_string_set(&input_pgn_files[num_input_files++],argv[i]);
 
       } else if (my_string_equal(argv[i],"-exact-match")) {
 
@@ -143,11 +163,11 @@ void elo_book(int argc, char * argv[]) {
    book_clear();
 
    for (i=0; i<num_train_files; i++) {
-     stat(train_pgn_file[i], &buf);
+     stat(train_pgn_files[i], &buf);
      if (buf.st_mode & S_IFDIR) {
-       fprintf(stderr, "%s is a directory!\n", train_pgn_file[i]);
-       chdir(train_pgn_file[i]);
-       DIR *dirp = opendir(train_pgn_file[i]);
+       fprintf(stderr, "%s is a directory!\n", train_pgn_files[i]);
+       chdir(train_pgn_files[i]);
+       DIR *dirp = opendir(train_pgn_files[i]);
        while ((dp = readdir(dirp)) != NULL) {
          stat(dp->d_name, &buf);
          if (buf.st_mode & S_IFDIR) {
@@ -160,15 +180,34 @@ void elo_book(int argc, char * argv[]) {
        }
        (void)closedir(dirp);
      } else {
-       fprintf(stderr, "learning train games from %s ...\n", train_pgn_file[i]);
-       book_insert(train_pgn_file[i], exact_match);
+       fprintf(stderr, "learning train games from %s ...\n", train_pgn_files[i]);
+       book_insert(train_pgn_files[i], exact_match);
      }
 
    }
 
-
-   fputs("eloizing games ...\n", stderr);
-   eloize_games(input_pgn_file, exact_match);
+   for (i=0; i<num_input_files; i++) {
+     stat(input_pgn_files[i], &buf);
+     if (buf.st_mode & S_IFDIR) {
+       fprintf(stderr, "%s is a directory!\n", input_pgn_files[i]);
+       chdir(input_pgn_files[i]);
+       DIR *dirp = opendir(input_pgn_files[i]);
+       while ((dp = readdir(dirp)) != NULL) {
+         stat(dp->d_name, &buf);
+         if (buf.st_mode & S_IFDIR) {
+           fprintf(stderr, "dir contains %s, which is a directory\n", dp->d_name);
+         } else {
+           fprintf(stderr, "dir contains %s\n", dp->d_name);
+           fprintf(stderr, "eloizing games from %s ...\n", dp->d_name);
+           eloize_games(dp->d_name, exact_match);
+         }
+       }
+       (void)closedir(dirp);
+     } else {
+       fprintf(stderr, "eloizing games from %s...\n", input_pgn_files[i]);
+       eloize_games(input_pgn_files[i], exact_match);
+     }
+   }
 
    fputs("all done!\n", stderr);
 }
@@ -239,6 +278,8 @@ static void book_insert(const char file_name[], bool exact_match) {
               Book->entry[pos].n++;
               Book->entry[pos].gamenum = atoi(pgn->event);
               Book->entry[pos].elo_sum += player_elo;
+              Book->entry[pos].elo_min = MIN(Book->entry[pos].elo_min, player_elo);
+              Book->entry[pos].elo_max = MAX(Book->entry[pos].elo_max, player_elo);
               Book->entry[pos].elo_sumsq += (player_elo * player_elo);
             }
             
@@ -329,6 +370,8 @@ static int find_entry(const board_t * board, int move, bool create) {
    Book->entry[pos].terminal = 0;
    Book->entry[pos].elo_sum = 0;
    Book->entry[pos].elo_sumsq = 0;
+   Book->entry[pos].elo_min = 4000;
+   Book->entry[pos].elo_max = 0;
 
    // insert into the hash table
 
@@ -410,12 +453,12 @@ static void eloize_games(const char file_name[], bool exact_match) {
    char string[256];
    int move;
    int pos;
-   int final_elo;
-   int final_stdev_elo;
-   int final_ply;
-   int final_num_games;
-   int elo_min;
-   int elo_max;
+
+   struct elopath_stats final_stats;      // ELO stats for the last move # that had enough matches
+   struct elopath_stats penultimate_stats; // ELO stats for the move before that
+   
+   int elo_min;   // looking at each move #, the smallest of the average ELOs
+   int elo_max;   // looking at each move #, the largest of the average ELOs
    bool still_in_book;
 
    ASSERT(file_name!=NULL);
@@ -431,9 +474,21 @@ static void eloize_games(const char file_name[], bool exact_match) {
    while (pgn_next_game(pgn)) {
       board_start(board);
       ply = 0;
-      final_elo = -1;
-      final_ply = -1;
-      final_num_games = -1;
+
+      final_stats.elo = -1;
+      final_stats.ply = -1;
+      final_stats.stdev_elo = -1;
+      final_stats.num_games = -1;
+      final_stats.elo_min = -1;
+      final_stats.elo_max = -1;
+
+      penultimate_stats.elo = -1;
+      penultimate_stats.ply = -1;
+      penultimate_stats.stdev_elo = -1;
+      penultimate_stats.num_games = -1;
+      penultimate_stats.elo_min = -1;
+      penultimate_stats.elo_max = -1;
+
       elo_min = 3000;
       elo_max = 0;
 
@@ -453,12 +508,18 @@ static void eloize_games(const char file_name[], bool exact_match) {
             if (pos > -1 && ((exact_match && Book->entry[pos].n > 0)  || Book->entry[pos].n > 10)) {
               int avg_elo = Book->entry[pos].elo_sum / Book->entry[pos].n;
               int stdev_elo = sqrt((Book->entry[pos].elo_sumsq / Book->entry[pos].n) - (avg_elo * avg_elo));
-              final_ply = ply;
-              final_elo = avg_elo;
-              final_stdev_elo = stdev_elo;
-              final_num_games = Book->entry[pos].n;
-              elo_min = avg_elo < elo_min ? avg_elo : elo_min;
-              elo_max = avg_elo > elo_max ? avg_elo : elo_max;
+
+              penultimate_stats = final_stats;
+
+              final_stats.ply = ply;
+              final_stats.elo = avg_elo;
+              final_stats.stdev_elo = stdev_elo;
+              final_stats.num_games = Book->entry[pos].n;
+              final_stats.elo_min = Book->entry[pos].elo_min;
+              final_stats.elo_max = Book->entry[pos].elo_max;
+              
+              elo_min = MIN(avg_elo, elo_min);
+              elo_max = MAX(avg_elo, elo_max);
               //              printf("ply %3i. %5i games, ELO %i += %i.\n", ply, Book->entry[pos].n, avg_elo, stdev_elo);
             }
             move_do(board,move);
@@ -468,11 +529,11 @@ static void eloize_games(const char file_name[], bool exact_match) {
       game_nb++;
       if (game_nb % 10000 == 0) fprintf(stderr,"%d games ... (mode %i)\n",game_nb,exact_match);
       if (exact_match) {
-        if (still_in_book && (atoi(pgn->event) > 25000) && (Book->entry[pos].terminal == 1) && (Book->entry[pos].n == 1)) {
+        if (still_in_book && (Book->entry[pos].terminal == 1) && (Book->entry[pos].n == 1)) {
           printf("%s,%i\n", pgn->event, Book->entry[pos].gamenum);
         }
       } else {
-        printf("%s,%i,%i,%i,%i,%i,%i\n", pgn->event, final_elo, final_ply, final_num_games, final_stdev_elo, elo_min, elo_max);
+        printf("%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i\n", pgn->event, final_stats.elo, final_stats.ply, final_stats.num_games, final_stats.stdev_elo, elo_min, elo_max, final_stats.elo_min, final_stats.elo_max, penultimate_stats.elo, penultimate_stats.ply, penultimate_stats.num_games, penultimate_stats.stdev_elo, penultimate_stats.elo_min, penultimate_stats.elo_max);
       }
    }
    pgn_close(pgn);

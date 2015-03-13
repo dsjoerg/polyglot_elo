@@ -78,9 +78,16 @@ void filter_games(int argc, char * argv[]) {
    int num_forbidden_files = 0;
    const char * input_pgn_files[100];
    int num_input_files = 0;
-
+   
    struct stat buf;
    struct dirent *dp;
+
+   // zero out these pointers because otherwise my_string_set() will
+   // attempt to free() them
+   for (i=0; i<100; i++) {
+     forbidden_pgn_files[i] = NULL;
+     input_pgn_files[i] = NULL;
+   }
 
    MaxPly = 1024;
 
